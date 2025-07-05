@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pong Game</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Press Start 2P', cursive;
+        }
+        .game-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            height: 300px;
+            background-color: #bbf7d0;
+            border: 4px solid #166534;
+            overflow: hidden;
+        }
+        .paddle {
+            position: absolute;
+            width: 15px;
+            height: 80px;
+            background-color: #ef4444;
+            border-radius: 4px;
+        }
+        #playerPaddle {
+            left: 20px;
+        }
+        #computerPaddle {
+            right: 20px;
+        }
+        .ball {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            background-color: #000;
+            border-radius: 50%;
+        }
+        .center-line {
+            position: absolute;
+            width: 2px;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.1);
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .score-pulse {
+            animation: pulse 0.5s;
+        }
+    </style>
+</head>
+<body class="bg-green-50 min-h-screen flex flex-col items-center justify-center p-4">
+    <div class="text-center max-w-md">
+        <h1 class="text-2xl md:text-3xl mb-6 text-green-800">🏓 PONG</h1>
+        
+        <div class="flex justify-center gap-8 mb-4">
+            <div class="text-lg">
+                Player: <span id="playerScore" class="text-green-800">0</span>
+            </div>
+            <div class="text-lg">
+                Computer: <span id="computerScore" class="text-green-800">0</span>
+            </div>
+        </div>
+        
+        <div class="game-container mb-6">
+            <div class="center-line"></div>
+            <div id="playerPaddle" class="paddle"></div>
+            <div id="computerPaddle" class="paddle"></div>
+            <div id="ball" class="ball"></div>
+        </div>
+        
+        <div class="text-sm mb-4 text-green-600">
+            ⬆️ Move Up &nbsp;&nbsp;&nbsp; ⬇️ Move Down
+        </div>
+        
+        <button id="resetButton" class="bg-green-600 hover:bg-green-700 text-white py-2 px-6 rounded-lg transition-colors duration-200">
+            RESET GAME
+        </button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const playerScoreDisplay = document.getElementById('playerScore');
+            const computerScoreDisplay = document.getElementById('computerScore');
+            const playerPaddle = document.getElementById('playerPaddle');
+            const computerPaddle = document.getElementById('computerPaddle');
+            const ball = document.getElementById('ball');
+            const resetButton = document.getElementById('resetButton');
+            const gameContainer = document.querySelector('.game-container');
+            
+            // Game constants
+            const PADDLE_HEIGHT = 80;
+            const PADDLE_WIDTH = 15;
+            const BALL_SIZE = 15;
+            const WINNING_SCORE = 5;
+            
+            // Game state
+            let playerScore = 0;
+            let computerScore = 0;
+            let playerY = (gameContainer.offsetHeight - PADDLE_HEIGHT) / 2;
+            let computerY = (gameContainer.offsetHeight - PADDLE_HEIGHT) / 2;
+            let ballX = gameContainer.offsetWidth / 2;
+            let ballY = gameContainer.offsetHeight / 2;
+            let ballSpeedX = 4;
+            let ballSpeedY = 2;
+            let gameRunning = true;
+            let keysPressed = {};
+            let animationId = null;
+            
+            // Initialize game
+            function initGame() {
+                // Cancel any existing animation frame
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                }
+                
+                // Reset scores and positions
+                playerScore = 0;
+                computerScore = 0;
+                playerY = (gameContainer.offsetHeight - PADDLE_HEIGHT) / 2;
+                computerY = (gameContainer.offsetHeight - PADDLE_HEIGHT) / 2;
+                ballX = gameContainer.offsetWidth / 2;
+                ballY = gameContainer.offsetHeight / 2;
+                ballSpeedX = 4 * (Math.random() > 0.5 ? 1 : -1);
+                ballSpeedY = 2 * (Math.random() > 0.5 ? 1 : -1);
+                gameRunning = true;
+                
+                updateScore();
+                updateGameElements();
+                
+                // Start the game loop
+                gameLoop();
+            }
+            
+            // Update score display
+            function updateScore() {
+                playerScoreDisplay.textContent = playerScore;
+                computerScoreDisplay.textContent = computerScore;
+                
+                playerScoreDisplay.classList.add('score-pulse');
+                computerScoreDisplay.classList.add('score-pulse');
+                setTimeout(() => {
+                    playerScoreDisplay.classList.remove('score-pulse');
+                    computerScoreDisplay.classList.remove('score-pulse');
+                }, 500);
+            }
+            
+            // Update paddle and ball positions
+            function updateGameElements() {
+                playerPaddle.style.top = `${playerY}px`;
+                computerPaddle.style.top = `${computerY}px`;
+                ball.style.left = `${ballX}px`;
+                ball.style.top = `${ballY}px`;
+            }
+            
+            // Game loop
+            function gameLoop() {
+                if (!gameRunning) return;
+                
+                // Move player paddle
+                if (keysPressed['ArrowUp'] && playerY > 0) {
+                    playerY -= 6;
+                }
+                if (keysPressed['ArrowDown'] && playerY < gameContainer.offsetHeight - PADDLE_HEIGHT) {
+                    playerY += 6;
+                }
+                
+                // Computer AI (simple follow with delay)
+                const computerPaddleCenter = computerY + PADDLE_HEIGHT / 2;
+                if (computerPaddleCenter < ballY - 15) {
+                    computerY += 4;
+                } else if (computerPaddleCenter > ballY + 15) {
+                    computerY -= 4;
+                }
+                
+                // Keep computer paddle in bounds
+                computerY = Math.max(0, Math.min(gameContainer.offsetHeight - PADDLE_HEIGHT, computerY));
+                
+                // Move ball
+                ballX += ballSpeedX;
+                ballY += ballSpeedY;
+                
+                // Ball collision with top and bottom
+                if (ballY <= 0 || ballY >= gameContainer.offsetHeight - BALL_SIZE) {
+                    ballSpeedY = -ballSpeedY;
+                }
+                
+                // Ball collision with paddles
+                if (
+                    (ballX <= 20 + PADDLE_WIDTH && 
+                     ballY + BALL_SIZE >= playerY && 
+                     ballY <= playerY + PADDLE_HEIGHT) ||
+                    (ballX >= gameContainer.offsetWidth - 20 - PADDLE_WIDTH - BALL_SIZE && 
+                     ballY + BALL_SIZE >= computerY && 
+                     ballY <= computerY + PADDLE_HEIGHT)
+                ) {
+                    ballSpeedX = -ballSpeedX * 1.05; // Increase speed slightly on hit
+                    
+                    // Add some angle variation based on where ball hits paddle
+                    const paddleCenter = ballX < gameContainer.offsetWidth / 2 ? 
+                        playerY + PADDLE_HEIGHT / 2 : 
+                        computerY + PADDLE_HEIGHT / 2;
+                    const hitPosition = (ballY - paddleCenter) / (PADDLE_HEIGHT / 2);
+                    ballSpeedY = hitPosition * 5;
+                }
+                
+                // Ball out of bounds (score)
+                if (ballX < 0) {
+                    computerScore++;
+                    resetBall();
+                    updateScore();
+                    checkGameEnd();
+                } else if (ballX > gameContainer.offsetWidth) {
+                    playerScore++;
+                    resetBall();
+                    updateScore();
+                    checkGameEnd();
+                }
+                
+                updateGameElements();
+                animationId = requestAnimationFrame(gameLoop);
+            }
+            
+            // Reset ball to center
+            function resetBall() {
+                ballX = gameContainer.offsetWidth / 2;
+                ballY = gameContainer.offsetHeight / 2;
+                ballSpeedX = 4 * (Math.random() > 0.5 ? 1 : -1);
+                ballSpeedY = 2 * (Math.random() > 0.5 ? 1 : -1);
+            }
+            
+            // Check if game has ended
+            function checkGameEnd() {
+                if (playerScore >= WINNING_SCORE || computerScore >= WINNING_SCORE) {
+                    gameRunning = false;
+                    setTimeout(() => {
+                        alert(playerScore >= WINNING_SCORE ? "Player wins!" : "Computer wins!");
+                        initGame();
+                    }, 500);
+                }
+            }
+            
+            // Keyboard event listeners
+            document.addEventListener('keydown', (e) => {
+                keysPressed[e.key] = true;
+            });
+            
+            document.addEventListener('keyup', (e) => {
+                keysPressed[e.key] = false;
+            });
+            
+            // Reset game
+            resetButton.addEventListener('click', initGame);
+            
+            // Start the game
+            initGame();
+        });
+    </script>
+</body>
+</html>
